@@ -172,7 +172,19 @@ class DjangoObjectPermissions(DjangoModelPermissions):
         return [perm % kwargs for perm in self.perms_map[method]]
 
     def has_object_permission(self, request, view, obj):
-        model_cls = view.get_queryset().model
+        try:
+            queryset = view.get_queryset()
+        except AttributeError:
+            queryset = getattr(view, 'queryset', None)
+        except AssertionError:
+            # view.get_queryset() didn't find .queryset
+            queryset = None
+
+        assert queryset is not None, (
+            'Cannot apply DjangoObjectPermissions on a view that '
+            'does not have `.queryset` property nor redefines `.get_queryset()`.'
+        )
+        model_cls = queryset.model
         user = request.user
 
         perms = self.get_required_object_permissions(request.method, model_cls)
