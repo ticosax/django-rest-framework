@@ -8,6 +8,13 @@ from rest_framework.compat import get_model_name
 SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
 
 
+def get_queryset_from_view(view):
+    getter = getattr(view, 'get_queryset', None)
+    if getter is not None:
+        return getter()
+    return getattr(view, 'queryset', None)
+
+
 class BasePermission(object):
     """
     A base class from which all permission classes should inherit.
@@ -107,13 +114,7 @@ class DjangoModelPermissions(BasePermission):
         return [perm % kwargs for perm in self.perms_map[method]]
 
     def has_permission(self, request, view):
-        try:
-            queryset = view.get_queryset()
-        except AttributeError:
-            queryset = getattr(view, 'queryset', None)
-        except AssertionError:
-            # view.get_queryset() didn't find .queryset
-            queryset = None
+        queryset = get_queryset_from_view(view)
 
         # Workaround to ensure DjangoModelPermissions are not applied
         # to the root view when using DefaultRouter.
@@ -172,14 +173,7 @@ class DjangoObjectPermissions(DjangoModelPermissions):
         return [perm % kwargs for perm in self.perms_map[method]]
 
     def has_object_permission(self, request, view, obj):
-        try:
-            queryset = view.get_queryset()
-        except AttributeError:
-            queryset = getattr(view, 'queryset', None)
-        except AssertionError:
-            # view.get_queryset() didn't find .queryset
-            queryset = None
-
+        queryset = get_queryset_from_view(view)
         assert queryset is not None, (
             'Cannot apply DjangoObjectPermissions on a view that '
             'does not have `.queryset` property nor redefines `.get_queryset()`.'
